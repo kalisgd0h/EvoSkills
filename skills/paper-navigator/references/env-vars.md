@@ -7,7 +7,7 @@ Full reference for environment variables consumed by paper-navigator scripts. Th
 | Variable | Required for | Notes |
 |----------|-------------|-------|
 | `S2_API_KEY` | All S2 scripts (recommended) | [Request here](https://www.semanticscholar.org/product/api#api-key). Without it: `scholar_search` falls back to arXiv (via DeepXiv); `citation_traverse` / `recommend` / `snippet_search` are disabled. |
-| `DEEPXIV_API_TOKEN` | `arxiv_monitor`, `scholar_search` fallback | Token for the [DeepXiv SDK](https://github.com/qhjqhj00/deepxiv_sdk) (`pip install deepxiv-sdk`), which replaces the rate-limited arXiv API. Get a **free** token with `deepxiv token` (auto-registers, saves to `~/.env`) or at <https://data.rag.ac.cn/register>; ~10,000 req/day. The skill reads it from the environment, then `./.env` / `~/.env` (key-scoped — it does not load the whole file). Also read from `DEEPXIV_TOKEN`. |
+| `DEEPXIV_API_TOKEN` | `arxiv_monitor`, `scholar_search` fallback, `fetch_paper`/`fetch_section` full text | Token for the [DeepXiv SDK](https://pypi.org/project/deepxiv-sdk/) (`pip install deepxiv-sdk`, **pin `>=0.3.1`** — the GitHub README is stale), which replaces the rate-limited arXiv API and serves parsed full text. Get a **free** token with `deepxiv token` (auto-registers, saves to `~/.env`) or at <https://data.rag.ac.cn/register>. Quota: **10,000 req/day registered** vs **1,000/day anonymous** (most calls work tokenless, but register for the higher limit). The skill reads it from the environment, then `./.env` / `~/.env` (key-scoped — it does not load the whole file). Also read from `DEEPXIV_TOKEN`. |
 | `JINA_API_KEY` | `fetch_paper` | Free tier works without key |
 | `GITHUB_TOKEN` | `github_search`, `find_code` | Higher rate limits |
 | `HF_TOKEN` | `find_code`, `dataset_search`, `sota` | Higher rate limits |
@@ -21,7 +21,7 @@ Full reference for environment variables consumed by paper-navigator scripts. Th
 | API | Without key | With key | When rate limited |
 |-----|-------------|----------|-------------------|
 | Semantic Scholar | 100 req/5min (~1 req/3s); **NO parallel calls** | 100 req/min; parallel OK | Auto-fallback to arXiv (via DeepXiv) in `scholar_search`; global pacer enforces interval |
-| arXiv (via DeepXiv) | Token required (`deepxiv token` for a free one) | ~10,000 req/day (`DEEPXIV_API_TOKEN`) | Primary fallback when S2 is limited; no 3s delay |
+| arXiv (via DeepXiv) | 1,000 req/day anonymous | 10,000 req/day registered (`DEEPXIV_API_TOKEN`; `deepxiv token` for a free one) | Primary fallback when S2 is limited; no 3s delay |
 | Jina Reader | Free tier | Higher with key | — |
 | HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` | — |
 | GitHub | 10 req/min | 5,000 req/hr (set `GITHUB_TOKEN`) | — |

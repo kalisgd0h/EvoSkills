@@ -90,6 +90,8 @@ def search(
     authors: list[str] | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    date_before: str | None = None,
+    use_fine_rerank: bool = True,
     reader: Any = None,
 ) -> list[dict]:
     """Run a DeepXiv arXiv search and return the list of raw result items.
@@ -101,6 +103,13 @@ def search(
         authors: Author-name filter.
         date_from / date_to: ``YYYY-MM-DD`` bounds. The SDK maps a pair to a
             ``between`` filter, a lone ``date_from`` to ``after``, etc.
+        date_before: Month/day-granularity upper bound (``YYYY-MM`` or
+            ``YYYY-MM-DD``), passed via the SDK's explicit
+            ``date_search_type="before"``. When set it takes precedence over
+            ``date_to``. Benchmark solvers pass the asta-bench ``inserted_before``
+            cutoff here — nothing server-side enforces it.
+        use_fine_rerank: Enable DeepXiv's upstream fine reranking (default
+            ``True``; the SDK itself opts out by default).
         reader: Optional pre-built reader (used by tests). Defaults to
             ``get_reader()``.
 
@@ -111,17 +120,110 @@ def search(
     """
     if reader is None:
         reader = get_reader()
-    res = reader.search(
-        query=query,
-        size=max(1, min(limit, 100)),
-        categories=categories or None,
-        authors=authors or None,
-        date_from=date_from,
-        date_to=date_to,
-    )
+    kwargs: dict[str, Any] = {
+        "query": query,
+        "size": max(1, min(limit, 100)),
+        "categories": categories or None,
+        "authors": authors or None,
+        "use_fine_rerank": use_fine_rerank,
+    }
+    if date_before:
+        # Explicit "before" filter wins over the date_from/date_to convenience
+        # path so callers can express a month-granularity cutoff.
+        kwargs["date_search_type"] = "before"
+        kwargs["date_str"] = date_before
+    else:
+        kwargs["date_from"] = date_from
+        kwargs["date_to"] = date_to
+    res = reader.search(**kwargs)
     if isinstance(res, dict):
         return res.get("result") or []
     return []
+
+
+# ── Full-text access ──────────────────────────────────────────────
+#
+# Per-paper parsed full text for arXiv IDs. Each call is a single GET
+# (~1 quota unit). The intended flow is context-budget aware: call ``head``
+# to get the section map (one cheap call), pick a section by its TLDR /
+# token_count, then fetch only that section with ``section`` — never load a
+# whole paper into context unless you truly need ``raw``.
+
+
+def head(arxiv_id: str, *, reader: Any = None) -> dict:
+    """Return paper metadata + structure (``title``, ``abstract``, ``authors``,
+    ``sections``, ``token_count``, ``categories``, ``publish_at``).
+
+    ``sections`` is a list of ``{name, idx, tldr, token_count}``; pass the
+    result to :func:`format_section_map` for a compact, stdout-friendly listing.
+    """
+    if reader is None:
+        reader = get_reader()
+    return reader.head(arxiv_id) or {}
+
+
+def section(arxiv_id: str, section_name: str, *, reader: Any = None) -> str:
+    """Return one section's text. ``section_name`` is matched case-insensitively
+    with partial matching (the SDK runs an internal ``head`` to resolve it)."""
+    if reader is None:
+        reader = get_reader()
+    return reader.section(arxiv_id, section_name) or ""
+
+
+def preview(arxiv_id: str, *, reader: Any = None) -> dict:
+    """Return ``{content (~10k chars), is_truncated, total_characters}`` — the
+    paper's opening, useful for a quick scan without fetching the full text."""
+    if reader is None:
+        reader = get_reader()
+    return reader.preview(arxiv_id) or {"content": "", "is_truncated": False}
+
+
+def raw(arxiv_id: str, *, reader: Any = None) -> str:
+    """Return the full paper as markdown (LaTeX math + references preserved, no
+    images). ~50–100k chars — prefer :func:`head` + :func:`section` when you
+    only need part of the paper."""
+    if reader is None:
+        reader = get_reader()
+    return reader.raw(arxiv_id) or ""
+
+
+def paper_json(arxiv_id: str, *, reader: Any = None) -> dict:
+    """Return the structured document: ``{data: {<section>: {content,
+    start_pos, end_pos}}, unmatched}``."""
+    if reader is None:
+        reader = get_reader()
+    return reader.json(arxiv_id) or {}
+
+
+def section_rows(head_result: dict) -> list[dict]:
+    """Normalize a :func:`head` result's ``sections`` to a list of
+    ``{idx, name, token_count, tldr}`` dicts (tolerant of string entries)."""
+    rows: list[dict] = []
+    for s in head_result.get("sections") or []:
+        if isinstance(s, dict):
+            rows.append(
+                {
+                    "idx": s.get("idx"),
+                    "name": s.get("name", ""),
+                    "token_count": s.get("token_count"),
+                    "tldr": s.get("tldr") or "",
+                }
+            )
+        else:
+            rows.append({"idx": None, "name": str(s), "token_count": None, "tldr": ""})
+    return rows
+
+
+def format_section_map(head_result: dict) -> str:
+    """One line per section — ``idx | name | token_count | tldr`` — so the agent
+    can pick a section by TLDR/token-count *before* fetching any text."""
+    lines: list[str] = []
+    for r in section_rows(head_result):
+        idx = "" if r["idx"] is None else r["idx"]
+        tok = "" if r["token_count"] is None else r["token_count"]
+        tldr = " ".join((r["tldr"] or "").split())
+        lines.append(f"{idx} | {r['name']} | {tok} | {tldr}")
+    return "\n".join(lines)
 
 
 def item_id(item: dict) -> str:

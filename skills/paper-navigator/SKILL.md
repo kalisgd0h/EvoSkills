@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.3.0'
+  version: '3.4.0'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -29,12 +29,12 @@ The agent does relevance judgment — no LLM-as-judge is called. You author the 
 
 Scripts at `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
 
-arXiv access (`arxiv_monitor`, `scholar_search` fallback) uses the DeepXiv SDK: `pip install deepxiv-sdk`, then `deepxiv token` once to provision a **free** API token (saved to `~/.env`). The skill reads the token from `DEEPXIV_API_TOKEN`/`DEEPXIV_TOKEN` in the environment, or from `./.env` / `~/.env`.
+arXiv access (`arxiv_monitor`, `scholar_search` fallback) and arXiv full text (`fetch_paper`, `fetch_section`) use the DeepXiv SDK: `pip install deepxiv-sdk` (pin `>=0.3.1`), then `deepxiv token` once to provision a **free** API token (saved to `~/.env`). The skill reads the token from `DEEPXIV_API_TOKEN`/`DEEPXIV_TOKEN` in the environment, or from `./.env` / `~/.env`.
 
 | Env var | Used by | Notes |
 |---|---|---|
 | `S2_API_KEY` | All S2 scripts | Without it: `scholar_search` falls back to arXiv (via DeepXiv); `citation_traverse` / `recommend` / `snippet_search` are disabled |
-| `DEEPXIV_API_TOKEN` | `arxiv_monitor`, `scholar_search` fallback | Get a free token: `deepxiv token` (writes `~/.env`). Also read from `DEEPXIV_TOKEN` and `./.env`/`~/.env`. ~10,000 req/day |
+| `DEEPXIV_API_TOKEN` | `arxiv_monitor`, `scholar_search` fallback, `fetch_paper`/`fetch_section` full text | Get a free token: `deepxiv token` (writes `~/.env`). Also read from `DEEPXIV_TOKEN` and `./.env`/`~/.env`. 10k req/day registered vs 1k anonymous |
 | `JINA_API_KEY` | `fetch_paper` | Free tier works without key |
 | `GITHUB_TOKEN` | `github_search`, `find_code` | Higher rate limits |
 | `PAPER_NAV_PAPERS_DIR` | `fetch_paper` full text | No default — set or pass `--metadata-only` |
@@ -322,7 +322,9 @@ If any box is unchecked, return to Step 6 — do not output.
 | New arXiv | `arxiv_monitor.py` | `--categories cs.CL` or `--keywords "x,y" --match-mode flexible` |
 | Trending | `trending.py` | citation velocity |
 | Body-text snippets | `snippet_search.py` | `--paper-ids c1,c2,c3 --limit 50` (1 call, not N) |
-| Fetch full text | `fetch_paper.py` | Saves to `$PAPER_NAV_PAPERS_DIR/<id>.md`; stdout truncated to 2000 chars |
+| Section map (arXiv) | `fetch_section.py --id <arxiv_id> --list` | `idx \| name \| token_count \| tldr`, one line/section. List first — pick a section by TLDR/token-count before fetching any text |
+| Fetch one section (arXiv) | `fetch_section.py --id <arxiv_id> --section <name>` | Preferred full-text path: fetch only the section you need and quote verbatim; never load a whole paper into context |
+| Fetch full text | `fetch_paper.py` | arXiv IDs → DeepXiv markdown first (clean, no Jina limits), else Jina/Unpaywall. Saves to `$PAPER_NAV_PAPERS_DIR/<id>.md`; stdout truncated to 2000 chars |
 | Code repo (known paper) | `find_code.py --arxiv-id <ID>` | Official repo lookup |
 | Code repo (unpublished) | `github_search.py` | When no arXiv ID exists |
 | HF leaderboard / SOTA | `sota.py` | sorted by downloads |

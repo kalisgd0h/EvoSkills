@@ -131,6 +131,48 @@ def _strip_boilerplate(text: str) -> str:
     return text
 
 
+def _fetch_via_deepxiv(arxiv_id: str, limit_chars: int = 50000) -> str | None:
+    """Fetch an arXiv paper's full text as clean markdown via DeepXiv.
+
+    Returns the (possibly truncated) markdown, or None if DeepXiv has no copy
+    (papers <1–3 days old may not be indexed yet → NotFoundError) or the SDK is
+    unavailable — callers fall back to Jina in that case.
+    """
+    arxiv_id = _strip_arxiv_version(arxiv_id)
+    try:
+        import deepxiv_client
+
+        text = deepxiv_client.raw(arxiv_id)
+    except Exception as e:
+        print(f"DeepXiv raw() failed for arXiv:{arxiv_id}: {e}", file=sys.stderr)
+        return None
+    if not text:
+        return None
+    print(
+        f"DeepXiv: fetched {len(text)} chars for arXiv:{arxiv_id}", file=sys.stderr
+    )
+    if len(text) > limit_chars:
+        text = (
+            text[:limit_chars] + f"\n\n---\n*[Truncated at {limit_chars} characters]*"
+        )
+    return text
+
+
+def fetch_full_text(url: str, meta: dict, limit_chars: int = 50000) -> str:
+    """Fetch full paper text, preferring DeepXiv for arXiv papers.
+
+    arXiv papers go through DeepXiv ``raw()`` first (clean markdown, no Jina
+    rate limits); non-arXiv papers — and DeepXiv misses — fall back to Jina
+    Reader on ``url``.
+    """
+    arxiv_id = (meta.get("externalIds") or {}).get("ArXiv") if meta else None
+    if arxiv_id:
+        text = _fetch_via_deepxiv(arxiv_id, limit_chars)
+        if text:
+            return text
+    return fetch_via_jina(url, limit_chars)
+
+
 def fetch_via_jina(url: str, limit_chars: int = 50000) -> str:
     """Fetch URL content as Markdown via Jina Reader."""
     jina_url = f"{JINA_PREFIX}{url}"
@@ -277,7 +319,7 @@ def main():
     if args.json:
         output = {"metadata": meta, "url": url}
         if not args.metadata_only and url:
-            content = fetch_via_jina(url, args.limit_chars)
+            content = fetch_full_text(url, meta, args.limit_chars)
             # Save to file
             pid = meta.get("paperId", args.paper_id or args.url)
             filepath = save_full_text(
@@ -311,7 +353,7 @@ def main():
         sys.exit(1)
 
     print(f"*Fetching from: {url}*\n", file=sys.stderr)
-    content = fetch_via_jina(url, args.limit_chars)
+    content = fetch_full_text(url, meta, args.limit_chars)
 
     # Save full text to file
     pid = meta.get("paperId", args.paper_id or args.url)

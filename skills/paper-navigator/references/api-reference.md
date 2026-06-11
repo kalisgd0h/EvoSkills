@@ -82,6 +82,49 @@ Returns Atom XML. Namespace: `{http://www.w3.org/2005/Atom}`
 
 ---
 
+## DeepXiv SDK
+
+Token-based, agent-oriented arXiv service that replaces the rate-limited arXiv
+API and provides parsed full-text access. Wrapped by `scripts/deepxiv_client.py`.
+
+**Install:** `pip install deepxiv-sdk` (**pin `>=0.3.1`**). The
+[GitHub README](https://github.com/qhjqhj00/deepxiv_sdk) is **stale** — it
+documents the removed v0.1.0 `search_mode`/`bm25_weight` API. Trust the
+[PyPI 0.3.1](https://pypi.org/project/deepxiv-sdk/) release and the installed
+wheel, not the README.
+
+**Auth:** `DEEPXIV_API_TOKEN` / `DEEPXIV_TOKEN` (or `./.env` / `~/.env`). See
+`references/env-vars.md`. Quota: **10,000 req/day** registered, **1,000/day**
+anonymous. Each call below is one GET (~50ms, 1 quota unit).
+
+### Search
+
+`deepxiv_client.search(query, *, limit, categories, authors, date_from, date_to, date_before, use_fine_rerank=True)`
+
+- `use_fine_rerank` defaults **on** (the SDK itself defaults off).
+- `date_before` (`YYYY-MM` or `YYYY-MM-DD`) → explicit `date_search_type="before"`;
+  takes precedence over `date_to`. Use for a reproducible freshness cutoff —
+  benchmark solvers pass the asta-bench `inserted_before` value here (nothing
+  server-side enforces it). `date_from`+`date_to` map to a `between` filter.
+- Also available upstream: `min_citation`, `venue`/`venues`.
+
+### Full text (arXiv IDs)
+
+| Wrapper | Returns | Notes |
+|---------|---------|-------|
+| `head(arxiv_id)` | `{title, abstract, authors, sections, token_count, …}` | `sections`: `[{name, idx, tldr, token_count}]`. Pass to `format_section_map()` for an `idx \| name \| token_count \| tldr` listing |
+| `section(arxiv_id, name)` | `str` | Case-insensitive / partial name match (internally costs an extra `head()`) |
+| `preview(arxiv_id)` | `{content (~10k chars), is_truncated, total_characters}` | Opening of the paper for a quick scan |
+| `raw(arxiv_id)` | `str` | Full markdown (~50–100k chars; LaTeX math + references preserved, no images) |
+| `paper_json(arxiv_id)` | `{data: {<section>: {content, start_pos, end_pos}}, unmatched}` | Structured document |
+
+**Budget discipline:** list sections with `head()` first, then fetch only the
+section you need with `section()` — don't pull `raw()` unless you truly need the
+whole paper. `NotFoundError` means the paper isn't indexed yet (papers <1–3 days
+old); callers fall back to Jina.
+
+---
+
 ## Jina Reader
 
 **URL pattern:** `https://r.jina.ai/{target_url}`
