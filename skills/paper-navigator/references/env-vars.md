@@ -12,7 +12,8 @@ Full reference for environment variables consumed by paper-navigator scripts. Th
 | `GITHUB_TOKEN` | `github_search`, `find_code` | Higher rate limits |
 | `HF_TOKEN` | `find_code`, `dataset_search`, `sota` | Higher rate limits |
 | `UNPAYWALL_EMAIL` | `fetch_paper` (optional) | Email for the Unpaywall API. Default: `paper-navigator@users.noreply.github.com` |
-| `PAPER_NAV_PAPERS_DIR` | `fetch_paper` (full-text save) | **Required to save full text.** No on-disk default — set explicitly, pass `--papers-dir`, or use `--metadata-only`. |
+| `PAPER_NAV_PAPERS_DIR` | `fetch_paper`, `fetch_section`, `claims` | **Required to save/cache full text.** No on-disk default — set explicitly, pass `--papers-dir`, or use `--metadata-only`. `claims add` reads cached section text from here (and writes it on a cache miss). |
+| `PAPER_NAV_CLAIMS_LEDGER` | `claims` | Path to the `claims.jsonl` evidence ledger. Used by `claims add` / `claims export` when `--ledger` is not passed. `claims add` may trigger **one DeepXiv `section()`/`raw()` fetch** (1 quota unit) on a cache miss. |
 | `S2_DATE_CUTOFF` | All S2 scripts (optional) | `YYYY` or `YYYY-MM-DD`. When set, every S2 endpoint that accepts `publicationDateOrYear` is filtered to ≤ that date (search, citations, references, snippet, author papers). Explicit `--year-min/--year-max` / `year` in params always wins. Single-paper and `/paper/batch` lookups are unaffected. Use as a freshness fence for reproducible research. |
 | `S2_CALL_LOG_DIR` / `S2_CALL_LOG` | All S2 scripts (debugging) | Set `_DIR` for full per-call body logging next to a `main.jsonl` index; set `_LOG` for the index only. Equivalent `ARXIV_*` and `OPENALEX_*` knobs exist. Default off. |
 

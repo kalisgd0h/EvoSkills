@@ -325,6 +325,7 @@ If any box is unchecked, return to Step 6 — do not output.
 | Section map (arXiv) | `fetch_section.py --id <arxiv_id> --list` | `idx \| name \| token_count \| tldr`, one line/section. List first — pick a section by TLDR/token-count before fetching any text |
 | Fetch one section (arXiv) | `fetch_section.py --id <arxiv_id> --section <name>` | Preferred full-text path: fetch only the section you need and quote verbatim; never load a whole paper into context |
 | Fetch full text | `fetch_paper.py` | arXiv IDs → DeepXiv markdown first (clean, no Jina limits), else Jina/Unpaywall. Saves to `$PAPER_NAV_PAPERS_DIR/<id>.md`; stdout truncated to 2000 chars |
+| Log a verbatim quote | `claims.py add <arxiv_id> "<quote>" [--section N]` | Evidence ledger. Auto-fetches+caches the section, validates the quote is verbatim (whitespace-normalized), writes only if it checks out. `--source-file` for non-arXiv. Read back: `claims.py export [--json] [--recheck]` |
 | Code repo (known paper) | `find_code.py --arxiv-id <ID>` | Official repo lookup |
 | Code repo (unpublished) | `github_search.py` | When no arXiv ID exists |
 | HF leaderboard / SOTA | `sota.py` | sorted by downloads |
