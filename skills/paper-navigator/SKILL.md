@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.4.0'
+  version: '3.5.0'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -85,6 +85,11 @@ TLDR: <one sentence>
 ```
 
 Stop here. Do not chain to citation expansion unless asked.
+
+When the user asks you to **read** the paper (not just card it), quote it as
+evidence verifiably: read sections with `fetch_section.py` and log verbatim
+quotes with `claims.py add` (see `references/reading-strategy.md` → *Capturing
+verifiable evidence*).
 
 ---
 
@@ -205,6 +210,12 @@ Rules:
 python scripts/snippet_search.py --query "<criterion phrase>" \
   --paper-ids "CorpusId:1,CorpusId:2,..." --limit 50
 ```
+
+**Verifiable evidence (arXiv):** to cite a body-text quote you can stand behind
+— e.g. the per-criterion evidence for a PERFECT-tier paper — read the section
+(`fetch_section.py`) and log it with
+`claims.py add <arxiv_id> "<quote>" --section <name>`, which validates the quote
+is verbatim. See `references/reading-strategy.md`.
 
 ### Step 5: Saturation Gate
 

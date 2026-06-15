@@ -68,6 +68,26 @@ Is this paper directly related to my implementation?
 
 ---
 
+## Capturing verifiable evidence
+
+Whenever you quote a paper to support a claim — in reading notes, a shortlist's
+per-criterion evidence, or a hand-off to another skill — make the quote
+*verifiable* rather than paraphrased from memory. For arXiv papers:
+
+1. `fetch_section.py --id <arxiv_id> --list` — scan the section map; pick a
+   section by its TLDR / token-count.
+2. `fetch_section.py --id <arxiv_id> --section <name>` — read just that section.
+3. Quote verbatim, then log it:
+   `claims.py add <arxiv_id> "<exact quote>" --section <name> --claim "<what it supports>"`
+
+`claims add` checks the quote occurs verbatim in the fetched text (auto-fetching
+the section if you skipped step 2) and writes it only if it checks out — so every
+logged quote is real and re-checkable later (`claims export --recheck`). This is
+the preferred way to back a claim: list sections, read one, quote it, log it —
+never load a whole paper into context just to find a sentence.
+
+---
+
 ## Key Questions to Answer for Each Paper
 
 ### Core Questions (all levels)
